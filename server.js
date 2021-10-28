@@ -10,7 +10,8 @@ const database = new Datastore("entries.db");
 database.loadDatabase();
 
 //listen on a port
-const server = app.listen(3000, listening);
+const port = process.env.PORT || 3000;
+const server = app.listen(port, listening);
 
 function listening() {
 	var host = server.address().address;
