@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>LocoBooth App</title>
+		<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css" />
+		<link
+			rel="stylesheet"
+			href="https://www.w3schools.com/lib/w3-colors-ios.css"
+		/>
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css"
+		/>
+		<style>
+			.main {
+				padding: 2.4em 2em;
+			}
+			.main h1 {
+				text-align: center;
+			}
+			#videoContainer {
+				width: 200px;
+				height: 300px;
+				overflow: hidden;
+				display: block;
+				margin: 2em auto;
+			}
+			#video {
+				margin-left: -120px;
+			}
+			#canvas {
+				margin: 16px 0;
+			}
+			.p5Canvas {
+				margin: 0 auto;
+				display: block;
+			}
+			#controls {
+				text-align: center;
+				margin: 1em;
+			}
+			#controls button,
+			#controls input {
+				margin: 1em;
+			}
+
+			#controls button:hover {
+				background: #3c3c3c;
+				color: #fff;
+				box-shadow: 0 0 11px rgba(33, 33, 33, 0.2);
+			}
+			#location span {
+				display: block;
+				max-width: 80%;
+				margin: 0.5em auto;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="main w3-ios-background">
+			<div class="w3-container w3-padding-large">
+				<div class="w3-panel w3-card w3-ios-deep-blue">
+					<h1>Virtual Photobooth</h1>
+					<p><a href="./all.html">See All Entries</a></p>
+
+					<div class="w3-row-padding">
+						<div class="w3-col s12 m8 w3-panel w3-white w3-card w3-padding-64">
+							<div id="videoContainer"></div>
+							<div id="controls">
+								<div id="location">
+									<span id="lat"></span>
+									<span id="long"></span>
+									<span id="weather"></span>
+								</div>
+							</div>
+						</div>
+						<div class="w3-col s12 m4">
+							<div id="canvas"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script
+			src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"
+			integrity="sha512-N4kV7GkNv7QR7RX9YF/olywyIgIwNvfEe2nZtfyj73HdjCUkAfOBDbcuJ/cTaN04JKRnw1YG1wnUyNKMsNgg3g=="
+			crossorigin="anonymous"
+			referrerpolicy="no-referrer"
+		></script>
+		<script>
+			//first get Geolocation and display in Window
+			let lat, long; //global so we can use them later
+			if ("geolocation" in navigator) {
+				console.log("geolocation available");
+				navigator.geolocation.getCurrentPosition((position) => {
+					lat = position.coords.latitude;
+					long = position.coords.longitude;
+					document.getElementById("lat").textContent = "Latitude: " + lat;
+					document.getElementById("long").textContent = "Longitude " + long;
+					getWeather();
+				});
+			} else {
+				document.getElementById("location").textContent =
+					"Please enable geolocation in your browser.";
+				console.log("geolocation not available");
+			}
+
+			async function getWeather() {
+				//adding a call that uses an API_KEY for final deploy to show hiding env variables
+				lat = lat.toFixed(1); //get those strings to the right length
+				long = long.toFixed(1);
+				const api_url = `weather/${lat},${long}`; //send the lat long data to the server
+				const response = await fetch(api_url);
+				const weather = await response.json(); //get the weather back from server, parse as json
+				console.log(weather);
+				let descr = weather.weather[0].description;
+				console.log(descr);
+				document.getElementById(
+					"weather"
+				).innerText = `The weather is: ${descr}`;
+			}
+
+			//now set up globals for p5.js photobooth
+			let snapArray = [];
+			let cnv;
+			let btn, Submitbtn, redoBtn, userInput;
+			let video;
+			function setup() {
+				video = createCapture(VIDEO);
+				video.size(533, 300);
+				video.parent("videoContainer");
+				video.attribute("id", "video");
+				cnv = createCanvas(120, 630);
+				noLoop();
+				background(51);
+				fill(255);
+				textSize(16);
+				text("Your Photos will appear here", 5, 100, 115, 300);
+				cnv.parent("canvas");
+				//controls for creating and submitting canvas images
+				btn = createButton("Take A Picture");
+				btn.parent("controls");
+				btn.mousePressed(takeSnap);
+				userInput = createInput("Name");
+				userInput.parent("controls");
+				userInput.hide();
+				submitBtn = createButton("Submit Your Location and Photos");
+				submitBtn.parent("controls");
+				submitBtn.mousePressed(submitEntry);
+				submitBtn.hide(); //hide until array full
+				redoBtn = createButton("Retake");
+				redoBtn.parent("controls");
+				redoBtn.mousePressed(reset);
+				redoBtn.hide(); //hide until array has been made
+			}
+
+			function takeSnap() {
+				btn.hide(); //hide the take snap button
+				snapArray = []; //clear array
+				let snapNum = 1;
+				let maxSnaps = 4;
+				let snaps = setInterval(() => {
+					let newSnap = video.get(120, 0, 200, 300);
+					snapArray.push(newSnap);
+					background(51);
+					textSize(32);
+					fill(225);
+					text(snapNum, 50, 50);
+					redraw();
+					snapNum++;
+
+					if (snapNum > maxSnaps) {
+						console.log("end of snaps!");
+						endSnaps();
+					}
+				}, 2000);
+				function endSnaps() {
+					clearInterval(snaps);
+					drawSnaps(); //draw snaps to canvas
+				}
+			}
+
+			function drawSnaps() {
+				let w = 100;
+				let h = 150;
+				let x = 0;
+				let y = 0;
+
+				for (let i = 0; i < snapArray.length; i++) {
+					image(snapArray[i], x + 10, y + 5, w, h);
+					y += h + 5;
+					if (y > height) {
+						y = 0;
+					}
+				}
+				submitBtn.show();
+				redoBtn.show();
+				userInput.show();
+				redraw();
+			}
+			function reset() {
+				submitBtn.hide();
+				redoBtn.hide();
+				userInput.hide();
+				btn.show();
+			}
+
+			async function submitEntry() {
+				let img = cnv.elt.toDataURL();
+				let userName = userInput.value();
+				let data = {
+					userName,
+					img,
+					lat,
+					long,
+				};
+				const options = {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify(data),
+				};
+				const response = await fetch("/addEntry", options);
+				const json = await response.json();
+				console.log(json);
+				let successMsg = document.createElement("p");
+				successMsg.textContent = `Thank you for your entry, ${json.userName}!`;
+				reset();
+				document.getElementById("controls").append(successMsg);
+			}
+		</script>
+	</body>
+</html>
