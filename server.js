@@ -25,11 +25,14 @@ app.use(express.json({ limit: "1mb" }));
 
 app.post("/addEntry", (request, response) => {
 	const data = request.body;
-	const saveImage = request.body.img.replace(/^data:image\/png;base64,/, "");
+
+	//uncomment the lines below to save image file locally.  Remember to change the frontend (all.html, or wherever entries are displayed) to use the path as image source
+
+	/* const saveImage = request.body.img.replace(/^data:image\/png;base64,/, "");
 	const timestamp = Date.now();
 	const imgPath = `public/images/img_${timestamp}.png`;
 	fs.writeFileSync(imgPath, saveImage, "base64");
-	data.img = imgPath.slice(7);
+	data.img = imgPath.slice(7); */
 
 	database.insert(data);
 	response.json(data);
